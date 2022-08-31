@@ -1,0 +1,67 @@
+
+//link: https://code.earthengine.google.com/ec4075d3591f3ba88cea065f2eb3b919
+
+Imports (1 entry)
+var table: Table users/tamaraqueune/poly_1
+type: FeatureCollection
+id: users/tamaraqueune/poly_1
+version: 1651670159652582
+columns: Object (1 property)
+properties: Object (1 property)
+system:asset_size: 6405
+
+//Display the shapefile into the interactive map
+Map.addLayer(table);//Display the view to the center of the screen and scale the view
+Map.centerObject(table,14);//Define styling and determine the color of the shapefile 
+var styling = {color: 'red', fillColor: '00000000'};
+Map.addLayer(table.style(styling));
+ image = image.select('T44QKE');
+var addNDVI2 = function(image) {
+  var ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI2');
+  return image.addBands(ndvi);
+};
+
+var addFmask = function(image) {
+  var datamask = image.select('QA60');
+  var cloudMask = datamask.neq(1);
+  return image.updateMask(cloudMask);
+};
+
+
+var collection13 = ee.ImageCollection('COPERNICUS/S2_SR')
+    .filterBounds(table)
+    .filterDate('2020-01-01', '2020-05-01')
+    .select(['B4', 'B8', 'QA60'])
+    .map(addFmask)
+    .map(addNDVI2).select('NDVI2');
+print(collection13)
+var series13 = ui.Chart.image.seriesByRegion(
+    collection13, table, ee.Reducer.mean(), 'NDVI2', 10, 'system:time_start', 'label')
+        .setChartType('ScatterChart')
+        .setOptions({
+          title: 'S2_SR_Summer2020',
+          vAxis: {title: 'NDVI'},
+          lineWidth: 1,
+          pointSize: 4,
+});
+
+var merged = collection13.toBands();
+
+//Map.addLayer(geometry, {color: 'FF0000'});
+print(series13);
+var palette = {min: -1, max: 1, palette: ['blue', 'white', 'green']};
+Map.addLayer(collection13,palette);
+
+Export.image.toDrive({
+  image: merged,
+  description: 'imageToDriveExample',
+  scale: 10,
+  region: table
+});
+var featureCollection = ee.FeatureCollection([table]);
+
+Export.table.toDrive({
+  collection: featureCollection,
+  description:'vectorsToDriveExample',
+  fileFormat: 'SHP'
+});
